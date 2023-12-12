@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CT Scan</title>
+
+    <script src="d3.v7.js"></script>
+
+    <style>
+        #time {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-family: sans-serif;
+            font-size: 12pt;
+        }
+
+        .legend_text {
+            font-family: sans-serif;
+            font-size: 5pt;
+        }
+
+        .slider {
+            width: 80%;
+            margin: 20px auto;
+        }
+
+        .brush-slider {
+            width: 80%;
+            margin: 20px auto;
+        }
+    </style>
+
+</head>
+
+<body>
+    <svg width="100%" height="100%" viewBox="0 0 1100 800" preserveAspectRatio="xMidYMid meet"></svg>
+
+    <div id='time'></div>
+    <div>
+        Density Slider:
+        <input type="range" min="0" max="1100" value="1100" class="brush-slider" id="brushSlider" step="10"
+            oninput="updateBrush(this.value)" />
+        <span id="brushValue">1100</span>
+    </div>
+    
+    <div>
+        Threshold:
+        <input type="range" min="0" max="1000" value="1000" class="slider" id="thresholdSlider" step="20"
+            oninput="updateThreshold(this.value)" />
+        <span id="thresholdValue">1000</span>
+    </div>
+
+    
+
+    <script>
+        const fileName = 'Data_CT.csv'; // Update the file path
+
+        let svg = d3.select("svg");
+
+        // Set appropriate dimensions for your data
+        const m = 512;
+        const n = 512;
+
+        // Path generator with null projection
+        const path = d3.geoPath(d3.geoIdentity().scale(1).translate([0, 0])); // Adjust translate values here
+
+        // Color scale
+        const maxValue = 3024;
+        const midValue = 58
+        const minValue = 0;
+
+        const colorScale = d3.scaleSequential(d3.interpolateRdBu)
+            .domain([minValue, midValue, maxValue]);
+
+        // Append a new 'g' element for the brush
+        const brushGroup = svg.append("g")
+            .attr("class", "brush-group")
+            .attr("transform", "translate(0, 400)"); // Adjust the translation as needed
+
+        const brushX = d3.brushX()
+            .extent([
+                [0, 0],
+                [1100, 30]
+            ])
+            .on("end", brushed);
+
+        const brush = brushGroup.append("g")
+            .attr("class", "brush")
+            .call(brushX);
+
+        function plot_contour(fileName, threshold) {
+            // Step 1: Read CSV file
+            d3.text(fileName).then(function (rawData) {
+                // Step 2: Convert data into 1D list
+                const values_T = rawData.split('\n').map(Number);
+
+                // Step 3: Contour generator
+                const contours = d3.contours()
+                    .size([m, n])
+                    .thresholds(d3.range(0, threshold, 20)) // Adjust thresholds as needed
+                (values_T);
+
+                // Remove previous contours
+                svg.selectAll(".contours").remove();
+
+                // Step 4: Append contours to path (d) with color coding
+                svg.append("g").attr("class", "contours")
+                    .selectAll("path")
+                    .data(contours)
+                    .enter()
+                    .append("path")
+                    .attr("d", path) // Use the updated path generator
+                    .attr("stroke", "black")
+                    .attr("stroke-width", ".1px")
+                    .attr("stroke-linejoin", "round")
+                    .attr("fill", function (d) {
+                        return colorScale(d.value);
+                    });
+            });
+        }
+
+        function updateThreshold(value) {
+            document.getElementById('thresholdValue').innerText = value;
+            plot_contour(fileName, value);
+        }
+
+        function updateThreshold(value) {
+            document.getElementById('thresholdValue').innerText = value;
+            plot_contour(fileName, value);
+        }
+
+        function brushed(event) {
+            if (!event.selection) return;
+
+            const [x0, x1] = event.selection.map(d3.scaleLinear().domain([0, 1100]).invert);
+
+            plot_contour(fileName, [x0, x1]);
+        }
+
+        function updateBrush(value) {
+            document.getElementById('brushValue').innerText = value;
+            const threshold = value; // Adjust as needed
+            plot_contour(fileName, threshold);
+        }
+
+        // Initial plot
+        plot_contour(fileName, 1000);
+    </script>
+</body>
+
+</html>
